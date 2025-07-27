@@ -22,7 +22,9 @@ services:
     ports:
       - "5672:5672"
     networks:
-      - elk-net
+      elk-net:
+        aliases:
+          - haproxy
 
   # ─ RabbitMQ 3-node Quorum cluster ──────────────────────────
   rabbit1:
