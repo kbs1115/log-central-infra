@@ -7,6 +7,13 @@ services:
       sh -c "
         exec haproxy -f /usr/local/etc/haproxy/haproxy.cfg
       "
+    depends_on:
+      rabbit1:
+        condition: service_healthy
+      rabbit2:
+        condition: service_healthy
+      rabbit3:
+        condition: service_healthy
     tmpfs:
       - /tmp/haproxy:mode=1777,size=16m   # ← 핵심
     volumes:
