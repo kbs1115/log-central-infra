@@ -20,7 +20,7 @@
   "exchanges": [
     {
     "name": "app_logs_exchange",           
-    "type": "consistent_hash",        
+    "type": "x-consistent-hash",        
     "durable": true,
     "vhost": "/",
     "auto_delete": false,

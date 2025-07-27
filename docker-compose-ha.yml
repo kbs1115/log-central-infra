@@ -28,7 +28,9 @@ services:
 
   # ─ RabbitMQ 3-node Quorum cluster ──────────────────────────
   rabbit1:
-    image: heidiks/rabbitmq-delayed-message-exchange:3.12.2-management
+    build:
+      context: ./rabbitmq-cluster
+      dockerfile: Dockerfile
     hostname: rabbit1
     container_name: rabbit1
     environment:
@@ -37,9 +39,9 @@ services:
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
       - RABBITMQ_NODENAME=${RABBITMQ_NODENAME_PREFIX}rabbit1
     volumes:
-      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-      - ./rabbitmq/data/rabbit1:/var/lib/rabbitmq/mnesia
-      - ./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./rabbitmq-cluster/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./rabbitmq-cluster/data/rabbit1:/var/lib/rabbitmq/mnesia
+      - ./rabbitmq-cluster/definitions.json:/etc/rabbitmq/definitions.json:ro
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -53,7 +55,9 @@ services:
         aliases:
           - rabbit1
   rabbit2:
-    image: heidiks/rabbitmq-delayed-message-exchange:3.12.2-management
+    build:
+      context: ./rabbitmq-cluster
+      dockerfile: Dockerfile
     hostname: rabbit2
     container_name: rabbit2
     depends_on:
@@ -71,9 +75,9 @@ services:
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
       - RABBITMQ_NODENAME=${RABBITMQ_NODENAME_PREFIX}rabbit2
     volumes:
-      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-      - ./rabbitmq/data/rabbit2:/var/lib/rabbitmq/mnesia
-      - ./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./rabbitmq-cluster/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./rabbitmq-cluster/data/rabbit2:/var/lib/rabbitmq/mnesia
+      - ./rabbitmq-cluster/definitions.json:/etc/rabbitmq/definitions.json:ro
       
     entrypoint: >
       bash -c "
@@ -89,7 +93,9 @@ services:
         aliases:
           - rabbit2
   rabbit3:
-    image: heidiks/rabbitmq-delayed-message-exchange:3.12.2-management
+    build:
+      context: ./rabbitmq-cluster
+      dockerfile: Dockerfile
     hostname: rabbit3
     container_name: rabbit3
     depends_on:
@@ -107,9 +113,9 @@ services:
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
       - RABBITMQ_NODENAME=${RABBITMQ_NODENAME_PREFIX}rabbit3
     volumes:
-      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-      - ./rabbitmq/data/rabbit3:/var/lib/rabbitmq/mnesia
-      - ./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+      - ./rabbitmq-cluster/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./rabbitmq-cluster/data/rabbit3:/var/lib/rabbitmq/mnesia
+      - ./rabbitmq-cluster/definitions.json:/etc/rabbitmq/definitions.json:ro
     entrypoint: >
       bash -c "
         rabbitmq-server -detached &&
