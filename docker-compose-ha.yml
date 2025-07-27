@@ -240,7 +240,7 @@ services:
       - rabbit3
       - es-init
     volumes:
-      - ./logstash/pipeline1:/usr/share/logstash/pipeline
+      - ./logstash/pipeline2:/usr/share/logstash/pipeline
       - ./wait-for-it.sh:/usr/local/bin/wait-for-it.sh
     entrypoint: >
       bash -c "
@@ -263,7 +263,7 @@ services:
       - rabbit3
       - es-init
     volumes:
-      - ./logstash/pipeline1:/usr/share/logstash/pipeline
+      - ./logstash/pipeline3:/usr/share/logstash/pipeline
       - ./wait-for-it.sh:/usr/local/bin/wait-for-it.sh
     entrypoint: >
       bash -c "
