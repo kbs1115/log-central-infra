@@ -19,14 +19,15 @@
   "policies": [],
   "exchanges": [
     {
-      "name": "app_logs_exchange",
-      "type": "direct",
-      "durable": true,
-      "vhost": "/",
-      "auto_delete": false,
-      "internal": false,
-      "arguments": {}
-    },
+    "name": "app_logs_exchange",           
+    "type": "consistent_hash",        
+    "durable": true,
+    "vhost": "/",
+    "auto_delete": false,
+    "internal": false,
+    "arguments": {
+      "hash-header": "log_key"        
+    }},
     {
       "name": "worker_tasks_exchange",
       "type": "direct",
@@ -69,21 +70,24 @@
       "vhost": "/",
       "destination": "logs_pipeline_1",
       "destination_type": "queue",
-      "routing_key": "logs_1"
+      "routing_key": "1",
+      "args": {"hash-header":"log_key"}
     },
     {
       "source": "app_logs_exchange",
       "vhost": "/",
       "destination": "logs_pipeline_2",
       "destination_type": "queue",
-      "routing_key": "logs_2"
+      "routing_key": "1",
+      "args": {"hash-header":"log_key"}
     },
     {
       "source": "app_logs_exchange",
       "vhost": "/",
       "destination": "logs_pipeline_3",
       "destination_type": "queue",
-      "routing_key": "logs_3"
+      "routing_key": "1",
+      "args": {"hash-header":"log_key"}
     },
     {
       "source": "worker_tasks_exchange",

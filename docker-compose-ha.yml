@@ -1,38 +1,21 @@
-version: "2.4"
+version: "3.9"
 services:
   haproxy:
     image: haproxy:2.4
-    container_name: haproxy
-    depends_on:
-      rabbit1:
-        condition: service_healthy
-      rabbit2:
-        condition: service_healthy
-      rabbit3:
-        condition: service_healthy
+    user: haproxy
+    entrypoint: >
+      sh -c "
+        exec haproxy -f /usr/local/etc/haproxy/haproxy.cfg
+      "
+    tmpfs:
+      - /tmp/haproxy:mode=1777,size=16m   # ← 핵심
     volumes:
+      # (★) 호스트의 cfg → 컨테이너 cfg
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-      - ./haproxy/queue_ports.map:/etc/haproxy/queue_ports.map:ro
-      - ./haproxy/port_map.map:/etc/haproxy/port_map.map
-      - /var/run/haproxy.sock:/var/run/haproxy.sock
     ports:
-      - "50000-50100:50000-50100"
+      - "5672:5672"
     networks:
       - elk-net
-
-  map-updater:
-    build:
-      context: ./haproxy
-      dockerfile: Dockerfile.map
-    container_name: haproxy-map-updater
-    depends_on:
-      haproxy:
-        condition: service_started
-    volumes:
-      - ./haproxy/queue_ports.map:/etc/haproxy/queue_ports.map:ro
-      - ./haproxy/port_map.map:/etc/haproxy/port_map.map
-      - /var/run/haproxy.sock:/var/run/haproxy.sock
-    entrypoint: ["/update_map.sh"]
 
   # ─ RabbitMQ 3-node Quorum cluster ──────────────────────────
   rabbit1:
@@ -47,6 +30,7 @@ services:
     volumes:
       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ./rabbitmq/data/rabbit1:/var/lib/rabbitmq/mnesia
+      - ./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
     healthcheck:
       test: ["CMD", "rabbitmqctl", "status"]
       interval: 10s
@@ -54,8 +38,7 @@ services:
       retries: 5
       start_period: 30s
     ports:
-      - "${EXTERNAL_HAPROXY_PORT}:5672"
-      - "${EXTERNAL_RABBITMQ_MANAGEMENT_PORT}:15672"
+      - "${EXTERNAL_RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
     networks:
       elk-net:
         aliases:
@@ -81,6 +64,8 @@ services:
     volumes:
       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ./rabbitmq/data/rabbit2:/var/lib/rabbitmq/mnesia
+      - ./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+      
     entrypoint: >
       bash -c "
         rabbitmq-server -detached &&
@@ -115,6 +100,7 @@ services:
     volumes:
       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ./rabbitmq/data/rabbit3:/var/lib/rabbitmq/mnesia
+      - ./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
     entrypoint: >
       bash -c "
         rabbitmq-server -detached &&
@@ -223,7 +209,7 @@ services:
         # 1) ES 준비 대기
         /usr/local/bin/wait-for-it.sh elasticsearch:9200 --strict --timeout=120 &&
         # 2) RabbitMQ 준비 대기
-        /usr/local/bin/wait-for-it.sh rabbitmq:5672 --strict --timeout=60 &&
+        /usr/local/bin/wait-for-it.sh haproxy:5672 --strict --timeout=60 &&
         # 3) 준비되면 Logstash 진짜 진입점 실행
         exec /usr/local/bin/docker-entrypoint
       "
@@ -246,7 +232,7 @@ services:
         # 1) ES 준비 대기
         /usr/local/bin/wait-for-it.sh elasticsearch:9200 --strict --timeout=120 &&
         # 2) RabbitMQ 준비 대기
-        /usr/local/bin/wait-for-it.sh rabbitmq:5672 --strict --timeout=60 &&
+        /usr/local/bin/wait-for-it.sh haproxy:5672 --strict --timeout=60 &&
         # 3) 준비되면 Logstash 진짜 진입점 실행
         exec /usr/local/bin/docker-entrypoint
       "
@@ -269,7 +255,7 @@ services:
         # 1) ES 준비 대기
         /usr/local/bin/wait-for-it.sh elasticsearch:9200 --strict --timeout=120 &&
         # 2) RabbitMQ 준비 대기
-        /usr/local/bin/wait-for-it.sh rabbitmq:5672 --strict --timeout=60 &&
+        /usr/local/bin/wait-for-it.sh haproxy:5672 --strict --timeout=60 &&
         # 3) 준비되면 Logstash 진짜 진입점 실행
         exec /usr/local/bin/docker-entrypoint
       "
