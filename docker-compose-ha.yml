@@ -41,7 +41,6 @@ services:
     volumes:
       - ./rabbitmq-cluster/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ./rabbitmq-cluster/data/rabbit1:/var/lib/rabbitmq/mnesia
-      - ./rabbitmq-cluster/definitions.json:/etc/rabbitmq/definitions.json:ro
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
       interval: 10s
@@ -77,7 +76,6 @@ services:
     volumes:
       - ./rabbitmq-cluster/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ./rabbitmq-cluster/data/rabbit2:/var/lib/rabbitmq/mnesia
-      - ./rabbitmq-cluster/definitions.json:/etc/rabbitmq/definitions.json:ro
       
     entrypoint: >
       bash -c "
@@ -115,7 +113,6 @@ services:
     volumes:
       - ./rabbitmq-cluster/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
       - ./rabbitmq-cluster/data/rabbit3:/var/lib/rabbitmq/mnesia
-      - ./rabbitmq-cluster/definitions.json:/etc/rabbitmq/definitions.json:ro
     entrypoint: >
       bash -c "
         rabbitmq-server -detached &&
@@ -140,22 +137,37 @@ services:
       rabbit3:
         condition: service_healthy
     volumes:
-      - ./rabbitmq/definitions.json:/definitions.json:ro
+      - ./rabbitmq-cluster/definitions.json:/definitions.json:ro
     entrypoint: >
       sh -c '
-        echo "$(date) waiting for RabbitMQ cluster…";
-        until curl -s -u "${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}" \
-            http://rabbit1:15672/api/nodes | grep -q rabbit@rabbit3; do
-          sleep 5;
-        done;
-        echo "$(date) importing definitions…";
-        curl -u "${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}" \
-             -H "Content-Type: application/json" \
-             -X POST \
-             --data-binary @/definitions.json \
-             http://rabbit1:15672/api/definitions;
-        echo "$(date) done.";
+        set -eu
+        USER=$${RABBITMQ_DEFAULT_USER:-guest}
+        PASS=$${RABBITMQ_DEFAULT_PASS:-guest}
+        HOST="rabbit1:15672"
+
+        echo "$$(date) ⏳  waiting for rabbit1/2/3 to join…"
+        while :; do
+          json=$$(curl -s -u "$$USER:$$PASS" "http://$$HOST/api/nodes" || true)
+
+          echo "$$json" | grep -q "\"name\":\"rabbit@rabbit1\"" || { sleep 5; continue; }
+          echo "$$json" | grep -q "\"name\":\"rabbit@rabbit2\"" || { sleep 5; continue; }
+          echo "$$json" | grep -q "\"name\":\"rabbit@rabbit3\"" || { sleep 5; continue; }
+
+          break
+        done
+
+        echo "Waiting for 60 seconds...."
+        sleep 60
+
+        echo "$$(date) ✅  cluster ready. importing definitions…"
+        curl -sS -u "$$USER:$$PASS" -H "Content-Type: application/json" \
+            -X POST --data-binary @/definitions.json \
+            "http://$$HOST/api/definitions"
+        echo "$$(date) 🎉  done."
       '
+    networks:
+      - elk-net
+
   # ─ Elasticsearch ───────────────────────────────────────────
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
