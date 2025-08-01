@@ -21,6 +21,7 @@ services:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     ports:
       - "5672:5672"
+      - "${EXTERNAL_RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
     networks:
       elk-net:
         aliases:
@@ -47,8 +48,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
-    ports:
-      - "${EXTERNAL_RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
     networks:
       elk-net:
         aliases:
@@ -90,6 +89,7 @@ services:
       elk-net:
         aliases:
           - rabbit2
+          
   rabbit3:
     build:
       context: ./rabbitmq-cluster
