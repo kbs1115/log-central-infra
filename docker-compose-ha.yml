@@ -138,31 +138,75 @@ services:
         condition: service_healthy
     volumes:
       - ./rabbitmq-cluster/definitions.json:/definitions.json:ro
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+      - RABBIT_ADMIN_USER=${RABBIT_ADMIN_USER}
+      - RABBIT_ADMIN_PASSWORD=${RABBIT_ADMIN_PASSWORD}
+      - RABBIT_PRODUCER_USER=${RABBIT_PRODUCER_USER}
+      - RABBIT_PRODUCER_PASSWORD=${RABBIT_PRODUCER_PASSWORD}
+      - RABBIT_CONSUMER_USER=${RABBIT_CONSUMER_USER}
+      - RABBIT_CONSUMER_PASSWORD=${RABBIT_CONSUMER_PASSWORD}
     entrypoint: >
       sh -c '
-        set -eu
-        USER=$${RABBITMQ_DEFAULT_USER:-guest}
-        PASS=$${RABBITMQ_DEFAULT_PASS:-guest}
+        set -euo pipefail
+
+        # 0) 관리 API 인증(클러스터에 이미 있는 계정)
+        AUTH_USER="$${RABBITMQ_DEFAULT_USER}"
+        AUTH_PASS="$${RABBITMQ_DEFAULT_PASS}"
         HOST="rabbit1:15672"
+
+        # 1) 치환 대상 경로/출력 경로
+        DEF_IN="/definitions.json"
+        DEF_OUT="/tmp/definitions.filled.json"
+
+        # 2) .env에서 들어온 값(치환 대상)
+        ADM_USER="$${RABBIT_ADMIN_USER}"
+        ADM_PASS="$${RABBIT_ADMIN_PASSWORD}"
+        PRD_USER="$${RABBIT_PRODUCER_USER}"
+        PRD_PASS="$${RABBIT_PRODUCER_PASSWORD}"
+        CNS_USER="$${RABBIT_CONSUMER_USER}"
+        CNS_PASS="$${RABBIT_CONSUMER_PASSWORD}"
+
+        [ -f "$$DEF_IN" ] || { echo "No $$DEF_IN"; exit 1; }
+
+        # sed 안전 이스케이프
+        esc() { printf "%s" "$1" | sed -e "s/[\\/&]/\\\\&/g" -e "s/\"/\\\\\"/g" -e "s/\\$/\\\\\\$/g" -e "s/{/\\\\{/g" -e "s/}/\\\\}/g"; }
+
+        AUSER_ESC=$$(esc "$$ADM_USER")
+        APASS_ESC=$$(esc "$$ADM_PASS")
+        PUSER_ESC=$$(esc "$$PRD_USER")
+        PPASS_ESC=$$(esc "$$PRD_PASS")
+        CUSER_ESC=$$(esc "$$CNS_USER")
+        CPASS_ESC=$$(esc "$$CNS_PASS")
 
         echo "$$(date) ⏳  waiting for rabbit1/2/3 to join…"
         while :; do
-          json=$$(curl -s -u "$$USER:$$PASS" "http://$$HOST/api/nodes" || true)
-
+          json=$$(curl -s -u "$$AUTH_USER:$$AUTH_PASS" "http://$$HOST/api/nodes" || true)
           echo "$$json" | grep -q "\"name\":\"rabbit@rabbit1\"" || { sleep 5; continue; }
           echo "$$json" | grep -q "\"name\":\"rabbit@rabbit2\"" || { sleep 5; continue; }
           echo "$$json" | grep -q "\"name\":\"rabbit@rabbit3\"" || { sleep 5; continue; }
-
           break
         done
 
-        echo "Waiting for 60 seconds...."
-        sleep 60
+        echo "Waiting for 60 seconds…"; sleep 30
 
-        echo "$$(date) ✅  cluster ready. importing definitions…"
-        curl -sS -u "$$USER:$$PASS" -H "Content-Type: application/json" \
-            -X POST --data-binary @/definitions.json \
-            "http://$$HOST/api/definitions"
+        echo "$$(date) 🧩  filling definitions variables…"
+        sed -e "s|\$${RABBIT_ADMIN_USER}|$$AUSER_ESC|g" \
+          -e "s|\$${RABBIT_ADMIN_PASSWORD}|$$APASS_ESC|g" \
+          -e "s|\$${RABBIT_PRODUCER_USER}|$$PUSER_ESC|g" \
+          -e "s|\$${RABBIT_PRODUCER_PASSWORD}|$$PPASS_ESC|g" \
+          -e "s|\$${RABBIT_CONSUMER_USER}|$$CUSER_ESC|g" \
+          -e "s|\$${RABBIT_CONSUMER_PASSWORD}|$$CPASS_ESC|g" \
+          "$$DEF_IN" > "$$DEF_OUT"
+
+        echo "$$(date) ✅  importing definitions…"
+        curl -sS -u "$$AUTH_USER:$$AUTH_PASS" -H "Content-Type: application/json" \
+          -X POST --data-binary @"$$DEF_OUT" \
+          "http://$$HOST/api/definitions"
+
+        curl -sS -u "$$AUTH_USER:$$AUTH_PASS" -X DELETE "http://$$HOST/api/permissions/%2F/guest" || true
+        curl -sS -u "$$AUTH_USER:$$AUTH_PASS" -X DELETE "http://$$HOST/api/users/guest" || true
         echo "$$(date) 🎉  done."
       '
     networks:

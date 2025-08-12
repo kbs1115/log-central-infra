@@ -1,19 +1,25 @@
 {
   "vhosts": [{ "name": "/" }],
   "users": [
-    {
-      "name": "guest",
-      "password": "guest",
-      "tags": "administrator"
-    }
+    { "name": "${RABBIT_ADMIN_USER}",       "password": "${RABBIT_ADMIN_PASSWORD}",    "hashing_algorithm": "rabbit_password_hashing_sha256", "tags": "administrator" },
+    { "name": "${RABBIT_PRODUCER_USER}",    "password": "${RABBIT_PRODUCER_PASSWORD}", "hashing_algorithm": "rabbit_password_hashing_sha256", "tags": "" },
+    { "name": "${RABBIT_CONSUMER_USER}",    "password": "${RABBIT_CONSUMER_PASSWORD}", "hashing_algorithm": "rabbit_password_hashing_sha256", "tags": "" }
   ],
   "permissions": [
+    { "user": "${RABBIT_ADMIN_USER}",    "vhost": "/", "configure": ".*", "write": ".*", "read": ".*" },
     {
-      "user": "guest",
+      "user": "${RABBIT_PRODUCER_USER}",
       "vhost": "/",
-      "configure": ".*",
-      "write": ".*",
-      "read": ".*"
+      "configure": ".*",      
+      "write": ".*",          
+      "read": "^(?!.*)$"      
+    },
+    {
+      "user": "${RABBIT_CONSUMER_USER}",
+      "vhost": "/",
+      "configure": ".*",      
+      "write": "^(?!.*)$",    
+      "read": ".*"            
     }
   ],
   "policies": [],
